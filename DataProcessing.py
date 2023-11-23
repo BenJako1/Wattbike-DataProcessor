@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from utils import QuadInt
 
-file_name = 'WB-HUB-BEN-JAKOBS-2023-11-19T14_51_44Z'
+file_name = 'WB-HUB-BEN-JAKOBS-2023-11-21T18_38_06Z'
 file_path = f'ExampleData/raw/{file_name}.csv'
 ouput_file_path = f'ExampleData/processed/{file_name}_Processed.csv'
 
@@ -20,9 +21,11 @@ class Visualise:
     def DisplayPolar(self, data, index):
         force = np.array(data['polarForces'][index])
         angle = np.linspace(0, 2 * np.pi, len(force))
+        fit_angle, fit_force = QuadInt.Interpolate(angle, force)
 
         fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
-        ax.plot(angle, force)
+        ax.plot(angle, force, 'b.')
+        ax.plot(fit_angle, fit_force, 'r--')
         ax.set_rgrids([round(elem, -1) for elem in np.linspace(0, max(force) + 20, 4)[1:]], angle=-67.5)
         ax.grid(True)
         ax.set_theta_offset(np.pi / 2)
@@ -31,15 +34,18 @@ class Visualise:
         plt.show()
 
 class DataHandler(Visualise):
-    def __init__(self, file_path, outputData='power'):
+    def __init__(self, file_path, outputData='power', index=500):
         self.file_path = file_path
         self.outputData = outputData
 
         self.data = self.FormatData()
 
-        #print(self.SessionStats())
-        #self.DisplayCartesian(self.data, self.outputData)
-        self.DisplayPolar(self.data, 501)
+        if outputData == 'pedal':
+            self.DisplayPolar(self.data, index)
+        elif outputData == 'stats':
+            print(self.SessionStats())
+        else:
+            self.DisplayCartesian(self.data, self.outputData)
 
     def FormatData(self):
         data = pd.read_csv(self.file_path)
@@ -48,6 +54,7 @@ class DataHandler(Visualise):
                 data.drop([index], inplace=True)
         data.reset_index(inplace=True)
         data['polarForces'] = data['polarForces'].apply(lambda x: [int(i) for i in x.split(',')])
+        data['pesCombinedCoefficient'] = data['pesCombinedCoefficient'].apply(lambda x: float(x))
 
         timeStamp = [0]
         for index in range(len(data)):
@@ -67,11 +74,11 @@ class DataHandler(Visualise):
 
         return self.balance_avg, self.cadence_avg, self.power_avg, self.PES_Combined_avg, self.PES_Right_avg, self.PES_Left_avg, self.rotation_count
 
-class Output_File(DataHandler):
+class Output_Processed_File(DataHandler):
     def __init__(self, file_path, ouput_file_path):
         self.file_path = file_path
         data = self.FormatData()
         data.to_csv(ouput_file_path, index=False)
 
-DataHandler(file_path, 'power')
-#Output_File(file_path, ouput_file_path)
+DataHandler(file_path=file_path, outputData='cadence', index=1000)
+#Output_Processed_File(file_path, ouput_file_path)
